@@ -74,11 +74,11 @@ dotnet test --configuration Release
 dotnet build --configuration Release
 ```
 
-CI runs these commands. Unit tests cover `Stock`; SQLite-backed integration tests cover order creation, duplicate lines, rollback, cancellation, fulfillment, and adjustments. PostgreSQL container execution and concurrent-request testing still need a Docker-enabled environment; the API has not been deployed.
+CI runs these commands with a PostgreSQL service. Unit tests cover `Stock`; SQLite-backed integration tests cover order creation, duplicate lines, rollback, cancellation, fulfillment, and adjustments. A PostgreSQL test uses a temporary schema to check competing reservations. Locally, that test runs only when `TEST_POSTGRES_CONNECTION` is set. Docker Compose startup has not been verified in the current environment, and the API has not been deployed.
 
 ## Current limitations
 
 - This version has no authentication or roles. All writes must be protected by authentication and authorization before any public deployment.
 - It has no stock movement audit log, idempotency keys, or customer accounts.
 - Search uses simple text matching. Pagination is offset-based.
-- The automated database tests use SQLite; PostgreSQL behavior should be verified in a container before deployment.
+- The local test environment has no Docker, so Compose startup and end-to-end HTTP behavior still need verification.
