@@ -18,8 +18,9 @@ services:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__Inventory: Host=db;Database=inventory;Username=inventory;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       ApplyMigrations: "true"
+      InventoryWriteKey: ${INVENTORY_WRITE_KEY:?Set INVENTORY_WRITE_KEY in .env}
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     depends_on:
       db:
         condition: service_healthy

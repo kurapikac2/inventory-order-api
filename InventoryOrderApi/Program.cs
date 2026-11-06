@@ -1,7 +1,9 @@
 using InventoryOrderApi.Data;
 using InventoryOrderApi.Domain;
 using InventoryOrderApi.Services;
+using InventoryOrderApi.Security;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 var connection = builder.Configuration.GetConnectionString("Inventory")
@@ -11,6 +13,7 @@ builder.Services.AddScoped<OrderService>();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+app.UseMiddleware<InventoryWriteKeyMiddleware>();
 if (app.Configuration.GetValue<bool>("ApplyMigrations"))
 {
     using var scope = app.Services.CreateScope();
@@ -26,7 +29,9 @@ app.MapPost("/categories", async (CreateCategory request, InventoryDbContext db,
     var category = new Category { Name = name };
     db.Categories.Add(category);
     try { await db.SaveChangesAsync(ct); }
-    catch (DbUpdateException) { return Results.Conflict("Category name already exists."); }
+    catch (DbUpdateException error) when (error.InnerException is PostgresException
+        { SqlState: PostgresErrorCodes.UniqueViolation })
+    { return Results.Conflict("Category name already exists."); }
     return Results.Created($"/categories/{category.Id}", new { category.Id, category.Name });
 });
 
@@ -35,7 +40,7 @@ app.MapPost("/products", async (CreateProduct request, InventoryDbContext db, Ca
     var sku = request.Sku?.Trim();
     var name = request.Name?.Trim();
     if (string.IsNullOrWhiteSpace(sku) || sku.Length > 64 || string.IsNullOrWhiteSpace(name) || name.Length > 160 ||
-        request.Price < 0 || request.OnHand < 0 || request.CategoryId <= 0)
+        !ProductPrice.IsValid(request.Price) || request.OnHand < 0 || request.CategoryId <= 0)
         return Results.BadRequest("Invalid product fields.");
     if (!await db.Categories.AnyAsync(c => c.Id == request.CategoryId, ct)) return Results.BadRequest("Category does not exist.");
     if (await db.Products.AnyAsync(p => p.Sku == sku, ct)) return Results.Conflict("SKU already exists.");
@@ -46,7 +51,9 @@ app.MapPost("/products", async (CreateProduct request, InventoryDbContext db, Ca
     };
     db.Products.Add(product);
     try { await db.SaveChangesAsync(ct); }
-    catch (DbUpdateException) { return Results.Conflict("Product could not be created; check unique SKU."); }
+    catch (DbUpdateException error) when (error.InnerException is PostgresException
+        { SqlState: PostgresErrorCodes.UniqueViolation })
+    { return Results.Conflict("SKU already exists."); }
     return Results.Created($"/products/{product.Id}", new { product.Id });
 });
 

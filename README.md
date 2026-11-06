@@ -22,7 +22,7 @@ A small ASP.NET Core API for stock reservations and order lifecycle rules. It us
 
 ## Run with Docker Compose
 
-Copy `.env.example` to `.env` and replace the example password with a local value. Then run:
+Copy `.env.example` to `.env` and replace both example values with a local database password and a random write key of at least 32 characters. Then run:
 
 ```bash
 docker compose up --build
@@ -38,6 +38,7 @@ Install the .NET 10 SDK and PostgreSQL. Set an environment variable with a datab
 
 ```powershell
 $env:ConnectionStrings__Inventory = 'Host=localhost;Database=inventory;Username=inventory;Password=<your-local-password>'
+$env:InventoryWriteKey = '<a-random-key-of-at-least-32-characters>'
 $env:ApplyMigrations = 'true'
 dotnet run --project InventoryOrderApi
 ```
@@ -65,6 +66,7 @@ POST /orders
 ```
 
 Invalid request fields return `400`. Inventory and order-state conflicts return `409`. Successful writes return `201` or `204`.
+Every `POST` requires `X-Inventory-Key` with the configured write key; otherwise the API returns `401`. Compose binds the API to `127.0.0.1` only. Use TLS, an identity provider, and scoped roles before exposing the service to untrusted clients.
 
 ## Checks
 
@@ -78,7 +80,7 @@ CI runs these commands with a PostgreSQL service. Unit tests cover `Stock`; SQLi
 
 ## Current limitations
 
-- This version has no authentication or roles. All writes must be protected by authentication and authorization before any public deployment.
+- A single write key protects mutations in this demo, but it does not provide user identities, roles, rotation, or an audit trail. Add those before public deployment.
 - It has no stock movement audit log, idempotency keys, or customer accounts.
 - Search uses simple text matching. Pagination is offset-based.
 - The local test environment has no Docker, so Compose startup and end-to-end HTTP behavior still need verification.
