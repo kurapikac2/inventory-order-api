@@ -1,0 +1,27 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: inventory
+      POSTGRES_USER: inventory
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventory -d inventory"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+  api:
+    build: .
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Inventory: Host=db;Database=inventory;Username=inventory;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      ApplyMigrations: "true"
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  postgres_data:
