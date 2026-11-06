@@ -21,6 +21,8 @@ jobs:
           --health-retries 15
     env:
       TEST_POSTGRES_CONNECTION: Host=localhost;Port=5432;Database=inventory_test;Username=inventory;Password=integration_test_only
+      POSTGRES_PASSWORD: integration_test_only
+      INVENTORY_WRITE_KEY: ci-test-key-123456789012345678901234
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -29,3 +31,12 @@ jobs:
       - run: dotnet restore
       - run: dotnet test --no-restore --configuration Release
       - run: dotnet build --no-restore --configuration Release
+      - name: Smoke test Docker Compose
+        run: |
+          docker compose up --build -d
+          curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors http://127.0.0.1:8080/openapi/v1.json -o /dev/null
+          status=$(curl --silent -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"name":"Parts"}' http://127.0.0.1:8080/categories)
+          test "$status" = 401
+      - name: Stop test containers
+        if: always()
+        run: docker compose down --volumes
