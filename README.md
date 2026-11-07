@@ -2,6 +2,9 @@
 
 A small ASP.NET Core API for stock reservations and order lifecycle rules. It uses PostgreSQL and Entity Framework Core. The focus is on preventing overselling and keeping multi-item orders consistent, rather than exposing a generic CRUD layer.
 
+
+**Walkthrough:** [Run a sample stock reservation and cancellation](docs/DEMO.md) · [Architecture and concurrency decisions](docs/ARCHITECTURE.md)
+
 ## Business rules
 
 - `available = onHand - reserved`; stock cannot fall below existing reservations.
