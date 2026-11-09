@@ -7,7 +7,7 @@ This walkthrough demonstrates a stock reservation conflict and the order lifecyc
 Install Docker Desktop with Docker Compose, then in the repository root:
 
 ```powershell
-Copy-Item .env.example .env
+if (-not (Test-Path -LiteralPath .env)) { Copy-Item .env.example .env }
 ```
 
 Edit `.env` and replace example values with a unique **local** `POSTGRES_PASSWORD` and `INVENTORY_WRITE_KEY` of at least 32 characters. Do not commit this file.
@@ -18,13 +18,26 @@ docker compose up --build -d
 
 When startup completes, open `http://127.0.0.1:8080/openapi/v1.json`. The API binds to loopback only.
 
+## Executable verification (PowerShell 7+)
+
+With the API running on loopback against a dedicated demo database:
+
+```powershell
+$env:INVENTORY_WRITE_KEY = Read-Host 'Local API write key' -MaskInput
+./scripts/demo.ps1
+# Optional: record synthetic state transitions to a new file outside the repository.
+# ./scripts/demo.ps1 -OutputPath ../inventory-demo-evidence.json
+```
+
+The script refuses non-loopback URLs and refuses to overwrite evidence files. Each run creates a uniquely named synthetic category/product and two orders; it never resets a database or deletes existing records. Use `-BaseUri http://127.0.0.1:8015` if the normal port is occupied. Read the script before running it against your local instance. CI executes the same script against its disposable Compose PostgreSQL service and retains the output as an artifact.
+
 ## 2. Create sample data and reserve stock
 
 In the same PowerShell session:
 
 ```powershell
 $base = 'http://127.0.0.1:8080'
-$key = Read-Host 'Enter the local INVENTORY_WRITE_KEY from .env'
+$key = Read-Host 'Enter the local INVENTORY_WRITE_KEY from .env' -MaskInput
 $headers = @{ 'X-Inventory-Key' = $key }
 $suffix = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 
@@ -73,7 +86,7 @@ Invoke-RestMethod "$base/products"
 
 For the demo product, the expected final state is **OnHand=3, Reserved=0, Available=3**.
 
-Do not treat this document as a recorded local test result. Run it against the current build and verify the response values.
+The table and manual commands describe expected values. The executable script asserts them; consult the exact CI run and its `inventory-verification` artifact for recorded results, rather than assuming the prose itself proves execution.
 
 ## 5. Automated checks
 

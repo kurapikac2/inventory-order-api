@@ -8,11 +8,11 @@ namespace InventoryOrderApi.Tests;
 
 public sealed class PostgresReservationTests
 {
-    [Fact]
+    [PostgresFact]
     public async Task ConcurrentOrdersCannotReserveTheSameLastUnits()
     {
         var configured = Environment.GetEnvironmentVariable("TEST_POSTGRES_CONNECTION");
-        if (string.IsNullOrWhiteSpace(configured)) return; // CI supplies a fresh PostgreSQL service.
+        Assert.False(string.IsNullOrWhiteSpace(configured), "TEST_POSTGRES_CONNECTION is required.");
 
         var schema = "it_" + Guid.NewGuid().ToString("N");
         var builder = new NpgsqlConnectionStringBuilder(configured) { SearchPath = schema };
@@ -56,5 +56,14 @@ public sealed class PostgresReservationTests
             await using var drop = new NpgsqlCommand($"DROP SCHEMA \"{schema}\" CASCADE", admin);
             await drop.ExecuteNonQueryAsync();
         }
+    }
+}
+
+public sealed class PostgresFactAttribute : FactAttribute
+{
+    public PostgresFactAttribute()
+    {
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("TEST_POSTGRES_CONNECTION")))
+            Skip = "Set TEST_POSTGRES_CONNECTION to run against a disposable PostgreSQL database.";
     }
 }
