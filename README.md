@@ -5,6 +5,19 @@ A small ASP.NET Core API for stock reservations and order lifecycle rules. It us
 
 **Walkthrough:** [Run a sample stock reservation and cancellation](docs/DEMO.md) · [Architecture and concurrency decisions](docs/ARCHITECTURE.md)
 
+## Verified API walkthrough
+
+| Step | HTTP | On hand | Reserved | Available |
+| --- | --- | ---: | ---: | ---: |
+| Create synthetic stock | 201 | 5 | 0 | 5 |
+| Reserve four units | 201 | 5 | 4 | 1 |
+| Attempt four more | 409 | 5 | 4 | 1 |
+| Cancel first order | 204 | 5 | 0 | 5 |
+| Reserve two units | 201 | 5 | 2 | 3 |
+| Fulfill second order | 204 | 3 | 0 | 3 |
+
+The [executable PowerShell walkthrough](scripts/demo.ps1) checks every HTTP response and persisted stock state against a real loopback API. CI runs it against PostgreSQL through Docker Compose and publishes `demo.json` with the test results. [Run it yourself](docs/DEMO.md) · [Verification scope](docs/VERIFICATION.md) · [CI](https://github.com/kurapikac2/inventory-order-api/actions/workflows/ci.yml).
+
 ## Business rules
 
 - `available = onHand - reserved`; stock cannot fall below existing reservations.
@@ -79,7 +92,7 @@ dotnet test --configuration Release
 dotnet build --configuration Release
 ```
 
-CI runs these commands with a PostgreSQL service. Unit tests cover `Stock`; SQLite-backed integration tests cover order creation, duplicate lines, rollback, cancellation, fulfillment, and adjustments. An in-process HTTP test checks write-key enforcement and an order workflow. A PostgreSQL test uses a temporary schema to check competing reservations. Locally, that test runs only when `TEST_POSTGRES_CONNECTION` is set. CI also smoke-tests Docker Compose startup, OpenAPI, and unauthenticated write rejection. The API has not been deployed.
+CI runs these commands with a PostgreSQL service. Unit tests cover `Stock`; SQLite-backed integration tests cover order creation, duplicate lines, rollback, cancellation, fulfillment, and adjustments. An in-process HTTP test checks write-key enforcement and an order workflow. A PostgreSQL test uses a temporary schema to check competing reservations. Locally, that test is explicitly reported as skipped when `TEST_POSTGRES_CONNECTION` is absent; it no longer silently counts as a pass. Set a dedicated disposable PostgreSQL connection for all 18 tests. CI supplies it and rejects skipped tests. CI also smoke-tests Docker Compose startup, OpenAPI, and unauthenticated write rejection. The API has not been deployed.
 
 ## Current limitations
 

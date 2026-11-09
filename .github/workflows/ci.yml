@@ -29,7 +29,15 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - run: dotnet restore
-      - run: dotnet test --no-restore --configuration Release
+      - run: dotnet test --no-restore --configuration Release --logger "trx;LogFileName=tests.trx" --results-directory test-results
+      - name: Require the full PostgreSQL suite to execute
+        shell: pwsh
+        run: |
+          [xml]$report = Get-Content test-results/tests.trx
+          $counts = $report.TestRun.ResultSummary.Counters
+          if ($counts.total -ne $counts.executed -or [int]$counts.failed -ne 0) {
+            throw 'The full suite must execute without skipped or failed tests.'
+          }
       - run: dotnet build --no-restore --configuration Release
       - name: Smoke test Docker Compose
         run: |
@@ -37,6 +45,16 @@ jobs:
           curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors http://127.0.0.1:8080/openapi/v1.json -o /dev/null
           status=$(curl --silent -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"name":"Parts"}' http://127.0.0.1:8080/categories)
           test "$status" = 401
+      - name: Verify the PostgreSQL HTTP reservation walkthrough
+        shell: pwsh
+        run: ./scripts/demo.ps1 -OutputPath test-results/demo.json
+      - name: Upload test and HTTP evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: inventory-verification
+          path: test-results/
+          if-no-files-found: error
       - name: Stop test containers
         if: always()
         run: docker compose down --volumes
